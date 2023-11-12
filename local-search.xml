@@ -16,5 +16,18 @@
   
   
   
+  <entry>
+    <title>大型项目maven依赖冲突解决方案</title>
+    <link href="/2020/07/02/maven-conflict/"/>
+    <url>/2020/07/02/maven-conflict/</url>
+    
+    <content type="html"><![CDATA[<h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>Spark 2.x + Scala 2.11 项目迁移到 Spark 3.0 + Scala 2.12 环境，且新环境所用HBase版本较低，所以在迁移中遇到了许多API错误和Jar包冲突问题</p><h3 id="1-原有API报错"><a href="#1-原有API报错" class="headerlink" title="1.原有API报错"></a>1.原有API报错</h3><p>开始时遇到了一个小问题，就是Spark升级到3.0导致以前的API调用方式不可用<br>旧版本调用在新版本中报错，如下图所示<br><img src="/images/img.png" alt="img.png"></p><p>点进去查看该类发现在Spark 3.0 中该对象被私有化，无法调用<br><img src="/images/img_1.png" alt="img_1.png"></p><p>我这里使用了暴力的解决方案 - 覆盖大法（可能存在隐患）：本地构建一个DYSparkHadoopUtil，将用到的SparkHadoopUtil代码拷贝进去，并把调用的对象设为公有类型，在项目中import DYSparkHadoopUtil即可</p><h3 id="2-依赖冲突"><a href="#2-依赖冲突" class="headerlink" title="2.依赖冲突"></a>2.依赖冲突</h3><p>在Java的Maven项目中，不同的库或模块所引入的依赖版本存在冲突，可能导致编译错误、运行时异常或者不一致的行为，常见报错有：NoClassDefFoundError、NoSuchMethodError、ClassNotFoundException</p><p>这类问题可以分为两类来讨论，第一种是可以以某一个版本为基准的，剔除掉其他的就行；第二种是每一个版本都被需要</p><ol><li>第一种：</li></ol><p>可以手工剔除掉有问题的Maven依赖，但是当项目依赖较多时，人工寻找冲突的Jar包或者使用Maven自带的show dependencies会非常卡顿</p><p><strong>解决方案</strong>：使用Maven Helper插件剔除（快速方便）</p><p>在Maven环境下Jar的加载顺序跟依赖树的节点位置相关，我们可以使用 mvn dependency:tree 来打印，或者在IDEA中安装 MavenHelper 插件来查看工程的依赖树，如下图：</p><p><img src="/images/img_2.png" alt="img_2.png"></p><p>小tips：依赖的加载是有优先级的，maven会优先加载靠近根节点的依赖（层级浅的优先加载），优先加载在 pom.xml 中 元素内靠前的依赖（从上往下查找，谁先出现谁先加载），可以利用这个特性显示指定依赖版本，无需一个个剔除</p><ol start="2"><li>第二种：</li></ol><p>这种情况出现于a包的1.0版本中有A方法，没有B方法，而2.0中有B方法没有A方法，而自己项目中有的模块又要用到A，有的模块又要用到B，就很蛋疼。</p><p>比如我们HBaseReader插件引入的hbase-client依赖中自带引入了低版本的Guava包（12.0.1），但是项目中MySQLReader里用到了高版本的Guava包（28.1），两个版本的Guava包都包含各自独有的方法，去掉其中一边都会导致另一边报错。</p><p><strong>解决方案</strong>：</p><ol><li>直接搜索有无现成可用的shaded包，shaded包把所有的东西都打包编译了，不会造成Jar包冲突。本次因为高版本Guava包和hbase-client的不兼容问题，也使用hbase-shaded-client成功解决</li><li>自己打包，使用maven-shade-plugin插件来对overwatch 依赖的Jar包重命名</li></ol>]]></content>
+    
+    
+    
+  </entry>
+  
+  
+  
   
 </search>
